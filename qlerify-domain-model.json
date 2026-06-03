@@ -1,0 +1,1625 @@
+{
+  "$schema": "https://app.qlerify.com/schemas/domain-model/v1.json",
+  "version": 1,
+  "boundedContext": "Lars",
+  "roles": [
+    "Teacher",
+    "Specialist",
+    "Coordinator"
+  ],
+  "domainEvents": {
+    "LearningProblemReported": {
+      "event": "Learning Problem Reported",
+      "role": "Teacher",
+      "follows": [
+        "start"
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/ReportLearningProblem"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/LearningProblem"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetStudentDetails",
+          "description": "Get Student Details"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a teacher has observed a student struggling, when the teacher reports the learning problem, then a Learning Problem Reported event is recorded for that student",
+        "Given a learning problem already exists and is open for the student, when the teacher attempts to report the same problem again, then the report is rejected to avoid duplicates"
+      ]
+    },
+    "StudentAssessed": {
+      "event": "Student Assessed",
+      "role": "Specialist",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/LearningProblemReported"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/AssessStudent"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/Assessment"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetReportedLearningProblems",
+          "description": "Get Reported Learning Problems"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a learning problem has been reported, when the specialist completes an assessment of the student, then a Student Assessed event is recorded with the assessment findings",
+        "Given no learning problem has been reported for the student, when the specialist attempts to record an assessment, then the assessment is rejected"
+      ]
+    },
+    "SupportPlanCreated": {
+      "event": "Support Plan Created",
+      "role": "Specialist",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/StudentAssessed"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/CreateSupportPlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetAssessmentResults",
+          "description": "Get Assessment Results"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a student has been assessed, when the specialist creates a support plan, then a Support Plan Created event is recorded in draft status",
+        "Given no assessment exists for the student, when the specialist attempts to create a support plan, then the creation is rejected"
+      ]
+    },
+    "PlanGoalsDefined": {
+      "event": "Plan Goals Defined",
+      "role": "Specialist",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/SupportPlanCreated"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/DefinePlanGoals"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetSupportPlanDraft",
+          "description": "Get Support Plan Draft"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a support plan exists in draft status, when the specialist defines measurable goals, then a Plan Goals Defined event is recorded with at least one goal",
+        "Given a support plan has no goals, when the specialist tries to submit it for approval, then the action is blocked until goals are defined"
+      ]
+    },
+    "PlanApproved": {
+      "event": "Plan Approved",
+      "role": "Coordinator",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/PlanGoalsDefined"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/ApprovePlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetPlansPendingApproval",
+          "description": "Get Plans Pending Approval"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a support plan has defined goals and is pending approval, when the coordinator approves the plan, then a Plan Approved event is recorded",
+        "Given a support plan has no defined goals, when the coordinator attempts to approve it, then the approval is rejected"
+      ]
+    },
+    "PlanActivated": {
+      "event": "Plan Activated",
+      "role": "Teacher",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/PlanApproved"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/ActivatePlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetPlansPendingApproval",
+          "description": "Get Approved Plans"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a support plan has been approved, when the teacher activates the plan, then a Plan Activated event is recorded and the plan becomes active",
+        "Given a support plan has not been approved, when the teacher attempts to activate it, then the activation is rejected"
+      ]
+    },
+    "InterventionLogged": {
+      "event": "Intervention Logged",
+      "role": "Teacher",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/PlanActivated"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/LogIntervention"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/Intervention"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetSupportPlanDraft",
+          "description": "Get Active Plan Details"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a support plan is active, when the teacher logs an intervention performed with the student, then an Intervention Logged event is recorded against the plan",
+        "Given a support plan is not active, when the teacher attempts to log an intervention, then the log is rejected"
+      ]
+    },
+    "ProgressRecorded": {
+      "event": "Progress Recorded",
+      "role": "Teacher",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/InterventionLogged"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/RecordProgress"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/ProgressRecord"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetSupportPlanDraft",
+          "description": "Get Plan Goals And Interventions"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given an intervention has been logged for an active plan, when the teacher records progress against a plan goal, then a Progress Recorded event is recorded",
+        "Given the progress value falls outside the allowed scale, when the teacher records progress, then the entry is rejected"
+      ]
+    },
+    "PlanReviewed": {
+      "event": "Plan Reviewed",
+      "role": "Specialist",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/ProgressRecorded"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/ReviewPlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetRecordedProgress",
+          "description": "Get Recorded Progress"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given progress has been recorded for an active plan, when the specialist reviews the plan, then a Plan Reviewed event is recorded with review notes",
+        "Given no progress has been recorded, when the specialist attempts to review the plan, then the review is rejected"
+      ]
+    },
+    "PlanUpdated": {
+      "event": "Plan Updated",
+      "role": "Specialist",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/PlanReviewed"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/UpdatePlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetSupportPlanDraft",
+          "description": "Get Plan Review Outcome"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a plan has been reviewed, when the specialist updates the plan goals or interventions based on the review, then a Plan Updated event is recorded with a new version",
+        "Given a plan is closed, when the specialist attempts to update it, then the update is rejected"
+      ]
+    },
+    "PlanClosed": {
+      "event": "Plan Closed",
+      "role": "Coordinator",
+      "follows": [
+        {
+          "$ref": "#/domainEvents/PlanUpdated"
+        }
+      ],
+      "command": {
+        "$ref": "#/schemas/commands/ClosePlan"
+      },
+      "aggregateRoot": {
+        "$ref": "#/schemas/entities/SupportPlan"
+      },
+      "readModels": [
+        {
+          "$ref": "#/schemas/queries/GetSupportPlanDraft",
+          "description": "Get Plan Status And Outcomes"
+        }
+      ],
+      "acceptanceCriteria": [
+        "Given a plan has been reviewed and goals are met or no longer required, when the coordinator closes the plan, then a Plan Closed event is recorded and the plan becomes inactive",
+        "Given a plan has unresolved open goals, when the coordinator attempts to close it, then a confirmation or justification is required before closure"
+      ]
+    }
+  },
+  "schemas": {
+    "commands": {
+      "ReportLearningProblem": {
+        "required": [
+          "studentId",
+          "description",
+          "problemType"
+        ],
+        "fields": [
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "description"
+          },
+          {
+            "name": "problemType"
+          },
+          {
+            "name": "observedDate"
+          },
+          {
+            "name": "severity"
+          }
+        ]
+      },
+      "AssessStudent": {
+        "required": [
+          "learningProblemId",
+          "studentId",
+          "findings"
+        ],
+        "fields": [
+          {
+            "name": "learningProblemId"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "assessmentDate"
+          },
+          {
+            "name": "findings"
+          },
+          {
+            "name": "recommendations"
+          },
+          {
+            "name": "assessmentScores",
+            "relatedEntity": {
+              "$ref": "#/schemas/valueObjects/AssessmentScore"
+            },
+            "array": true,
+            "fields": [
+              {
+                "name": "domain"
+              },
+              {
+                "name": "score"
+              },
+              {
+                "name": "scale"
+              }
+            ]
+          }
+        ]
+      },
+      "CreateSupportPlan": {
+        "required": [
+          "assessmentId",
+          "studentId"
+        ],
+        "fields": [
+          {
+            "name": "assessmentId"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "title"
+          },
+          {
+            "name": "description"
+          },
+          {
+            "name": "startDate"
+          }
+        ]
+      },
+      "DefinePlanGoals": {
+        "required": [
+          "id",
+          "planGoals"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "planGoals",
+            "relatedEntity": {
+              "$ref": "#/schemas/entities/PlanGoal"
+            },
+            "array": true,
+            "fields": [
+              {
+                "name": "description"
+              },
+              {
+                "name": "targetMetric"
+              },
+              {
+                "name": "targetValue"
+              },
+              {
+                "name": "dueDate"
+              }
+            ]
+          }
+        ]
+      },
+      "ApprovePlan": {
+        "required": [
+          "id"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "approvalDate"
+          },
+          {
+            "name": "approvalNotes"
+          }
+        ]
+      },
+      "ActivatePlan": {
+        "required": [
+          "id"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "activationDate"
+          }
+        ]
+      },
+      "LogIntervention": {
+        "required": [
+          "supportPlanId",
+          "planGoalId",
+          "interventionType",
+          "performedDate"
+        ],
+        "fields": [
+          {
+            "name": "supportPlanId"
+          },
+          {
+            "name": "planGoalId"
+          },
+          {
+            "name": "interventionType"
+          },
+          {
+            "name": "description"
+          },
+          {
+            "name": "performedDate"
+          },
+          {
+            "name": "duration"
+          },
+          {
+            "name": "outcome"
+          }
+        ]
+      },
+      "RecordProgress": {
+        "required": [
+          "supportPlanId",
+          "planGoalId",
+          "progressValue"
+        ],
+        "fields": [
+          {
+            "name": "supportPlanId"
+          },
+          {
+            "name": "interventionId"
+          },
+          {
+            "name": "planGoalId"
+          },
+          {
+            "name": "progressValue"
+          },
+          {
+            "name": "scale"
+          },
+          {
+            "name": "recordedDate"
+          },
+          {
+            "name": "notes"
+          }
+        ]
+      },
+      "ReviewPlan": {
+        "required": [
+          "id",
+          "reviewNotes"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "reviewDate"
+          },
+          {
+            "name": "reviewNotes"
+          },
+          {
+            "name": "reviewOutcome"
+          }
+        ]
+      },
+      "UpdatePlan": {
+        "required": [
+          "id"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "version"
+          },
+          {
+            "name": "planGoals",
+            "relatedEntity": {
+              "$ref": "#/schemas/entities/PlanGoal"
+            },
+            "array": true,
+            "required": [
+              "id"
+            ],
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "description"
+              },
+              {
+                "name": "targetMetric"
+              },
+              {
+                "name": "targetValue"
+              },
+              {
+                "name": "dueDate"
+              }
+            ]
+          },
+          {
+            "name": "interventions",
+            "relatedEntity": {
+              "$ref": "#/schemas/entities/Intervention"
+            },
+            "array": true,
+            "required": [
+              "id"
+            ],
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "interventionType"
+              },
+              {
+                "name": "description"
+              }
+            ]
+          }
+        ]
+      },
+      "ClosePlan": {
+        "required": [
+          "id",
+          "closureReason"
+        ],
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "closureDate"
+          },
+          {
+            "name": "closureReason"
+          },
+          {
+            "name": "justification"
+          },
+          {
+            "name": "goalsMet"
+          }
+        ]
+      }
+    },
+    "queries": {
+      "GetStudentDetails": {
+        "description": "Profile of a student and any open learning problems, viewed before reporting a new problem.",
+        "entity": {
+          "$ref": "#/schemas/entities/Student"
+        },
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "firstName"
+          },
+          {
+            "name": "lastName"
+          },
+          {
+            "name": "gradeLevel",
+            "description": "Student's current grade, used to filter or contextualize the report."
+          },
+          {
+            "name": "className"
+          },
+          {
+            "name": "openLearningProblems",
+            "description": "Existing open problems, shown to avoid duplicate reports.",
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "problemType"
+              },
+              {
+                "name": "status"
+              }
+            ]
+          }
+        ]
+      },
+      "GetReportedLearningProblems": {
+        "description": "Reported learning problems awaiting assessment by the specialist.",
+        "array": true,
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "problemType"
+          },
+          {
+            "name": "description"
+          },
+          {
+            "name": "severity"
+          },
+          {
+            "name": "observedDate"
+          },
+          {
+            "name": "status",
+            "description": "Problem status, used to find problems awaiting assessment."
+          }
+        ]
+      },
+      "GetAssessmentResults": {
+        "description": "Assessment findings and scores used to draft a support plan.",
+        "entity": {
+          "$ref": "#/schemas/entities/Assessment"
+        },
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "learningProblemId"
+          },
+          {
+            "name": "assessmentDate"
+          },
+          {
+            "name": "findings"
+          },
+          {
+            "name": "recommendations"
+          },
+          {
+            "name": "assessmentScores",
+            "relatedEntity": {
+              "$ref": "#/schemas/valueObjects/AssessmentScore"
+            },
+            "fields": [
+              {
+                "name": "domain"
+              },
+              {
+                "name": "score"
+              },
+              {
+                "name": "scale"
+              }
+            ]
+          }
+        ]
+      },
+      "GetSupportPlanDraft": {
+        "description": "Draft support plan details viewed before defining measurable goals.",
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "assessmentId"
+          },
+          {
+            "name": "title"
+          },
+          {
+            "name": "description"
+          },
+          {
+            "name": "status",
+            "description": "Plan status, used to confirm the plan is in draft."
+          },
+          {
+            "name": "startDate"
+          },
+          {
+            "name": "planGoals",
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "description"
+              },
+              {
+                "name": "targetMetric"
+              },
+              {
+                "name": "targetValue"
+              },
+              {
+                "name": "status"
+              }
+            ]
+          },
+          {
+            "name": "interventions",
+            "fields": [
+              {
+                "name": "id"
+              },
+              {
+                "name": "planGoalId"
+              },
+              {
+                "name": "interventionType"
+              },
+              {
+                "name": "performedDate"
+              },
+              {
+                "name": "outcome"
+              }
+            ]
+          },
+          {
+            "name": "version"
+          },
+          {
+            "name": "reviewDate"
+          },
+          {
+            "name": "reviewNotes"
+          },
+          {
+            "name": "reviewOutcome",
+            "description": "Outcome of the latest review guiding what to update."
+          },
+          {
+            "name": "openGoalCount",
+            "description": "Count of goals not yet met, computed to determine if closure needs justification.",
+            "computed": true
+          }
+        ]
+      },
+      "GetPlansPendingApproval": {
+        "description": "Support plans with defined goals pending approval by the coordinator.",
+        "array": true,
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "studentId"
+          },
+          {
+            "name": "title"
+          },
+          {
+            "name": "status",
+            "description": "Filters plans awaiting coordinator approval."
+          },
+          {
+            "name": "startDate"
+          },
+          {
+            "name": "planGoals",
+            "fields": [
+              {
+                "name": "description"
+              },
+              {
+                "name": "targetMetric"
+              },
+              {
+                "name": "targetValue"
+              },
+              {
+                "name": "dueDate"
+              }
+            ]
+          },
+          {
+            "name": "approvalDate"
+          },
+          {
+            "name": "approvalNotes"
+          }
+        ]
+      },
+      "GetRecordedProgress": {
+        "description": "Recorded progress entries for an active plan, reviewed by the specialist.",
+        "array": true,
+        "fields": [
+          {
+            "name": "id"
+          },
+          {
+            "name": "supportPlanId"
+          },
+          {
+            "name": "planGoalId"
+          },
+          {
+            "name": "interventionId"
+          },
+          {
+            "name": "progressValue"
+          },
+          {
+            "name": "scale"
+          },
+          {
+            "name": "recordedDate"
+          },
+          {
+            "name": "notes"
+          }
+        ]
+      }
+    },
+    "entities": {
+      "LearningProblem": {
+        "description": "Aggregate root representing a learning difficulty observed for a student; created when reported and tracked until it is assessed and resolved.",
+        "required": [
+          "id",
+          "studentId",
+          "description",
+          "problemType"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the learning problem.",
+            "exampleData": [
+              "lp-001",
+              "lp-002",
+              "lp-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "studentId",
+            "description": "Reference to the student this learning problem concerns.",
+            "exampleData": [
+              "stu-001",
+              "stu-002",
+              "stu-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "description",
+            "description": "Narrative of the observed learning difficulty.",
+            "exampleData": [
+              "Struggles with reading comprehension",
+              "Difficulty focusing in class",
+              "Trouble with basic arithmetic"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "problemType",
+            "description": "Category of the learning problem.",
+            "exampleData": [
+              "Reading",
+              "Attention",
+              "Mathematics"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "observedDate",
+            "description": "Date the problem was first observed by the teacher.",
+            "exampleData": [
+              "2024-01-10",
+              "2024-02-05",
+              "2024-03-12"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "severity",
+            "description": "Assessed seriousness of the problem.",
+            "exampleData": [
+              "Low",
+              "Medium",
+              "High"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "status",
+            "description": "Current lifecycle state of the learning problem, used to prevent duplicate open reports.",
+            "exampleData": [
+              "Open",
+              "Assessed",
+              "Closed"
+            ],
+            "dataType": "string"
+          }
+        ]
+      },
+      "Assessment": {
+        "description": "Aggregate root capturing a specialist's evaluation of a student against a reported learning problem, including findings and domain scores.",
+        "required": [
+          "id",
+          "learningProblemId",
+          "studentId",
+          "findings"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the assessment.",
+            "exampleData": [
+              "asm-001",
+              "asm-002",
+              "asm-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "learningProblemId",
+            "description": "Reference to the learning problem that triggered this assessment.",
+            "exampleData": [
+              "lp-001",
+              "lp-002",
+              "lp-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "studentId",
+            "description": "Reference to the student being assessed.",
+            "exampleData": [
+              "stu-001",
+              "stu-002",
+              "stu-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "assessmentDate",
+            "description": "Date the assessment was carried out.",
+            "exampleData": [
+              "2024-01-15",
+              "2024-02-10",
+              "2024-03-18"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "findings",
+            "description": "Specialist's conclusions from evaluating the student.",
+            "exampleData": [
+              "Below grade level in reading",
+              "Mild attention deficit",
+              "Needs numeracy support"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "recommendations",
+            "description": "Suggested next steps or interventions arising from the assessment.",
+            "exampleData": [
+              "Phonics program",
+              "Structured breaks",
+              "One-on-one tutoring"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "assessmentScores",
+            "description": "Scored results across assessed learning domains.",
+            "array": true,
+            "exampleData": [
+              "Object",
+              "Object",
+              "Object"
+            ],
+            "relatedEntity": {
+              "$ref": "#/schemas/valueObjects/AssessmentScore"
+            },
+            "dataType": "object"
+          }
+        ]
+      },
+      "SupportPlan": {
+        "description": "Aggregate root representing a student's learning support plan; manages its full lifecycle from draft through goal definition, approval, activation, review, update and closure.",
+        "required": [
+          "id",
+          "assessmentId",
+          "studentId"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the support plan.",
+            "exampleData": [
+              "sp-001",
+              "sp-002",
+              "sp-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "assessmentId",
+            "description": "Reference to the assessment the plan is based on.",
+            "exampleData": [
+              "asm-001",
+              "asm-002",
+              "asm-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "studentId",
+            "description": "Reference to the student the plan supports.",
+            "exampleData": [
+              "stu-001",
+              "stu-002",
+              "stu-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "title",
+            "description": "Short title naming the support plan.",
+            "exampleData": [
+              "Reading Support Plan",
+              "Focus Improvement Plan",
+              "Numeracy Plan"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "description",
+            "description": "Overview of the plan's purpose and approach.",
+            "exampleData": [
+              "Daily reading interventions",
+              "Behavioral strategies",
+              "Math fluency program"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "status",
+            "description": "Current lifecycle state of the plan.",
+            "exampleData": [
+              "Draft",
+              "Active",
+              "Closed"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "startDate",
+            "description": "Date the plan is intended to begin.",
+            "exampleData": [
+              "2024-02-01",
+              "2024-03-01",
+              "2024-04-01"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "planGoals",
+            "description": "Measurable goals defined for the plan.",
+            "array": true,
+            "exampleData": [
+              "Object",
+              "Object",
+              "Object"
+            ],
+            "relatedEntity": {
+              "$ref": "#/schemas/entities/PlanGoal"
+            },
+            "dataType": "object"
+          },
+          {
+            "name": "interventions",
+            "description": "Interventions logged against this plan.",
+            "array": true,
+            "exampleData": [
+              "Object",
+              "Object",
+              "Object"
+            ],
+            "relatedEntity": {
+              "$ref": "#/schemas/entities/Intervention"
+            },
+            "dataType": "object"
+          },
+          {
+            "name": "version",
+            "description": "Version number incremented when the plan is updated.",
+            "exampleData": [
+              "1",
+              "2",
+              "3"
+            ],
+            "dataType": "number"
+          },
+          {
+            "name": "approvalDate",
+            "description": "Date the coordinator approved the plan.",
+            "exampleData": [
+              "2024-02-05",
+              "2024-03-04",
+              "2024-04-03"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "approvalNotes",
+            "description": "Notes recorded by the coordinator at approval.",
+            "exampleData": [
+              "Approved as drafted",
+              "Goals are realistic",
+              "Approved with monitoring"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "activationDate",
+            "description": "Date the teacher activated the plan.",
+            "exampleData": [
+              "2024-02-06",
+              "2024-03-05",
+              "2024-04-04"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "reviewDate",
+            "description": "Date of the latest specialist review.",
+            "exampleData": [
+              "2024-03-01",
+              "2024-04-01",
+              "2024-05-01"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "reviewNotes",
+            "description": "Notes captured during the plan review.",
+            "exampleData": [
+              "Good progress on reading",
+              "Limited improvement",
+              "Goals nearly met"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "reviewOutcome",
+            "description": "Outcome decision from the review guiding next actions.",
+            "exampleData": [
+              "Continue",
+              "Revise",
+              "Close"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "closureDate",
+            "description": "Date the coordinator closed the plan.",
+            "exampleData": [
+              "2024-06-01",
+              "2024-07-01",
+              "2024-08-01"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "closureReason",
+            "description": "Reason recorded for closing the plan.",
+            "exampleData": [
+              "Goals met",
+              "No longer required",
+              "Student transferred"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "justification",
+            "description": "Justification provided when closing a plan with open goals.",
+            "exampleData": [
+              "Goals partially met but adequate",
+              "Parent requested closure",
+              "End of school year"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "goalsMet",
+            "description": "Whether all plan goals were achieved at closure.",
+            "exampleData": [
+              "true",
+              "false",
+              "true"
+            ],
+            "dataType": "boolean"
+          }
+        ]
+      },
+      "PlanGoal": {
+        "description": "Entity representing a single measurable goal within a support plan, with its own identity, target metric and lifecycle status.",
+        "required": [
+          "id",
+          "description",
+          "targetMetric",
+          "targetValue"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the plan goal.",
+            "exampleData": [
+              "pg-001",
+              "pg-002",
+              "pg-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "description",
+            "description": "Statement of what the goal aims to achieve.",
+            "exampleData": [
+              "Read 60 words per minute",
+              "Stay on task 20 min",
+              "Solve 10 sums correctly"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "targetMetric",
+            "description": "Metric used to measure goal achievement.",
+            "exampleData": [
+              "Words per minute",
+              "Minutes on task",
+              "Correct answers"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "targetValue",
+            "description": "Target value to reach for the metric.",
+            "exampleData": [
+              "60",
+              "20",
+              "10"
+            ],
+            "dataType": "number"
+          },
+          {
+            "name": "dueDate",
+            "description": "Date by which the goal should be achieved.",
+            "exampleData": [
+              "2024-05-01",
+              "2024-06-01",
+              "2024-07-01"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "status",
+            "description": "Current achievement state of the goal.",
+            "exampleData": [
+              "Open",
+              "InProgress",
+              "Met"
+            ],
+            "dataType": "string"
+          }
+        ]
+      },
+      "Intervention": {
+        "description": "Aggregate root recording a support action performed with a student against a plan goal during an active support plan.",
+        "required": [
+          "id",
+          "supportPlanId",
+          "planGoalId",
+          "interventionType",
+          "performedDate"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the intervention.",
+            "exampleData": [
+              "int-001",
+              "int-002",
+              "int-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "supportPlanId",
+            "description": "Reference to the support plan this intervention belongs to.",
+            "exampleData": [
+              "sp-001",
+              "sp-002",
+              "sp-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "planGoalId",
+            "description": "Reference to the plan goal the intervention targets.",
+            "exampleData": [
+              "pg-001",
+              "pg-002",
+              "pg-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "interventionType",
+            "description": "Type or category of the intervention performed.",
+            "exampleData": [
+              "Tutoring",
+              "Group Activity",
+              "Practice Session"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "description",
+            "description": "Details of what was done during the intervention.",
+            "exampleData": [
+              "Guided reading session",
+              "Focus exercises",
+              "Math drills"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "performedDate",
+            "description": "Date the intervention was carried out.",
+            "exampleData": [
+              "2024-02-10",
+              "2024-03-10",
+              "2024-04-10"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "duration",
+            "description": "Duration of the intervention in minutes.",
+            "exampleData": [
+              "30",
+              "45",
+              "20"
+            ],
+            "dataType": "number"
+          },
+          {
+            "name": "outcome",
+            "description": "Observed outcome or result of the intervention.",
+            "exampleData": [
+              "Improved fluency",
+              "Stayed focused",
+              "Completed all tasks"
+            ],
+            "dataType": "string"
+          }
+        ]
+      },
+      "ProgressRecord": {
+        "description": "Aggregate root capturing a measured progress entry against a plan goal, optionally tied to an intervention, on an active support plan.",
+        "required": [
+          "id",
+          "supportPlanId",
+          "planGoalId",
+          "progressValue"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the progress record.",
+            "exampleData": [
+              "pr-001",
+              "pr-002",
+              "pr-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "supportPlanId",
+            "description": "Reference to the support plan this progress relates to.",
+            "exampleData": [
+              "sp-001",
+              "sp-002",
+              "sp-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "interventionId",
+            "description": "Reference to the intervention associated with this progress entry, if any.",
+            "exampleData": [
+              "int-001",
+              "int-002",
+              "int-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "planGoalId",
+            "description": "Reference to the plan goal the progress is measured against.",
+            "exampleData": [
+              "pg-001",
+              "pg-002",
+              "pg-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "progressValue",
+            "description": "Measured progress value against the goal's metric.",
+            "exampleData": [
+              "45",
+              "55",
+              "60"
+            ],
+            "dataType": "number"
+          },
+          {
+            "name": "scale",
+            "description": "Scale against which the progress value is recorded.",
+            "exampleData": [
+              "0-60",
+              "0-20",
+              "0-10"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "recordedDate",
+            "description": "Date the progress was recorded.",
+            "exampleData": [
+              "2024-02-15",
+              "2024-03-15",
+              "2024-04-15"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "notes",
+            "description": "Additional notes about the progress entry.",
+            "exampleData": [
+              "Steady improvement",
+              "Plateau observed",
+              "Goal almost reached"
+            ],
+            "dataType": "string"
+          }
+        ]
+      },
+      "Student": {
+        "description": "Entity representing a student with a distinct identity and lifecycle; referenced by learning problems, assessments and support plans.",
+        "required": [
+          "id",
+          "firstName",
+          "lastName"
+        ],
+        "fields": [
+          {
+            "name": "id",
+            "description": "Unique identifier of the student.",
+            "exampleData": [
+              "stu-001",
+              "stu-002",
+              "stu-003"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "firstName",
+            "description": "Given name of the student.",
+            "exampleData": [
+              "Anna",
+              "Liam",
+              "Sofia"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "lastName",
+            "description": "Family name of the student.",
+            "exampleData": [
+              "Johnson",
+              "Smith",
+              "Garcia"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "gradeLevel",
+            "description": "Current grade level of the student.",
+            "exampleData": [
+              "3",
+              "5",
+              "7"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "className",
+            "description": "Class the student is enrolled in.",
+            "exampleData": [
+              "3A",
+              "5B",
+              "7C"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "openLearningProblems",
+            "exampleData": [],
+            "dataType": "string"
+          }
+        ]
+      }
+    },
+    "valueObjects": {
+      "AssessmentScore": {
+        "description": "Value object representing a single scored result for a learning domain within an assessment; immutable and replaced as a whole.",
+        "required": [
+          "domain",
+          "score",
+          "scale"
+        ],
+        "fields": [
+          {
+            "name": "domain",
+            "description": "Learning domain the score applies to.",
+            "exampleData": [
+              "Reading",
+              "Attention",
+              "Numeracy"
+            ],
+            "dataType": "string"
+          },
+          {
+            "name": "score",
+            "description": "Numeric value achieved in this domain.",
+            "exampleData": [
+              "65",
+              "80",
+              "42"
+            ],
+            "dataType": "number"
+          },
+          {
+            "name": "scale",
+            "description": "Scale or maximum against which the score is measured.",
+            "exampleData": [
+              "0-100",
+              "0-100",
+              "0-50"
+            ],
+            "dataType": "string"
+          }
+        ]
+      }
+    }
+  },
+  "groups": [],
+  "releases": []
+}
